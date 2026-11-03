@@ -61,8 +61,6 @@ label { display: block; font-weight: 600; margin: 12px 0 4px; font-size: .92rem;
 .stat { font-size: 2rem; font-weight: 700; }
 .level { position: relative; text-decoration: none; color: inherit; display: block; }
 .level .num { position: absolute; top: 14px; right: 16px; color: var(--muted); font-weight: 700; }
-.level.locked { opacity: .55; pointer-events: none; }
-.level.locked::after { content: 'Locked – reach 60% in the quiz before'; display: block; margin-top: 6px; font-size: .8rem; color: var(--muted); }
 .level:hover { border-color: var(--accent); }
 .badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .badge { font-size: .78rem; padding: 3px 8px; border: 1px solid var(--gold); color: #7a5810; border-radius: 6px; background: #fbf3e0; }
