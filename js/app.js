@@ -36,7 +36,6 @@
   }
   const starHTML = (n) => '<span class="stars">' + '★'.repeat(n) + '<span class="off">' + '★'.repeat(3 - n) + '</span></span>';
   const totalStars = () => LEVELS.reduce((a, l) => a + stars(l.key), 0);
-  const unlocked = (i) => CFG.UNLOCK_ALL || i === 0 || pct('quiz:' + LEVELS[i - 1].key) >= 0.6;
 
   const BADGES = [
     ['First steps', 'Finish any activity', () => Object.keys(S.best).length > 0],
@@ -61,7 +60,7 @@
   }
   function sync(activity, score, max, wrong) {
     if (!CFG.SHEET_URL || !S.profile) return;
-    const body = JSON.stringify({ id: S.profile.id, name: S.profile.name, group: S.profile.group, xp: totalXP(), stars: totalStars(),
+    const body = JSON.stringify({ id: S.profile.id, name: S.profile.name, xp: totalXP(), stars: totalStars(),
       badges: myBadges().length, activity, score, max, wrong, key: S.profile.key, progress: S.best });
     fetch(CFG.SHEET_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body }).catch(() => {});
   }
@@ -93,13 +92,11 @@
       <label for="nm">Your name (shown in the ranking)</label><input id="nm" maxlength="40" value="${esc(S.profile ? S.profile.name : '')}">
       <label for="sid">Student ID</label><input id="sid" inputmode="numeric" maxlength="12" value="${esc(S.profile ? S.profile.id : '')}">
       <label for="pin">PIN (4 digits)</label><input id="pin" type="password" inputmode="numeric" maxlength="4" autocomplete="current-password">
-      <label for="grp">Presentation group</label><select id="grp">${CFG.GROUPS.map(g => `<option>${esc(g)}</option>`).join('')}</select>
       <p class="small muted"><b>First time?</b> Choose any 4-digit PIN and remember it.<br><b>Another phone or computer?</b> Sign in with the same student ID and PIN – your progress comes back.</p>
       <button class="btn" id="go">Start</button> <span id="wait" class="small muted"></span></div>`;
-    if (S.profile) document.getElementById('grp').value = S.profile.group;
     const btn = document.getElementById('go');
     btn.onclick = async () => {
-      const name = document.getElementById('nm').value.trim(), id = document.getElementById('sid').value.trim(), group = document.getElementById('grp').value, pin = document.getElementById('pin').value.trim();
+      const name = document.getElementById('nm').value.trim(), id = document.getElementById('sid').value.trim(), pin = document.getElementById('pin').value.trim();
       if (name.length < 2) return toast('Please type your name.');
       if (!/^\d{6,12}$/.test(id)) return toast('Please type your student ID (numbers only).');
       if (!/^\d{4}$/.test(pin)) return toast('Please type a 4-digit PIN.');
@@ -113,12 +110,12 @@
           if (j.status === 'ok') { merge(j.progress); toast('Welcome back! Your progress has been loaded.'); }
         } catch (e) { toast('Could not reach the ranking server – you can still play; progress will sync later.'); }
       }
-      S.profile = { name, id, group, key }; save(); renderMe(); sync('sign-in', 0, 0, []); location.hash = '#/';
+      S.profile = { name, id, key }; save(); renderMe(); sync('sign-in', 0, 0, []); location.hash = '#/';
     };
   });
   route(/^\/profile$/, () => {
     $app.innerHTML = `<a class="back" href="#/">← Map</a><div class="card" style="max-width:520px">
-      <h1>${esc(S.profile.name)}</h1><p>Student ID: ${esc(S.profile.id)}<br>Group: ${esc(S.profile.group)}</p>
+      <h1>${esc(S.profile.name)}</h1><p>Student ID: ${esc(S.profile.id)}</p>
       <p><b>${totalXP()} XP</b> · ${totalStars()} / 30 stars · ${myBadges().length} badges</p>
       <div class="row"><a class="btn ghost" href="#/login">Edit my details</a>
       <button class="btn ghost" id="out">Sign out of this device</button></div>
@@ -143,7 +140,7 @@
       </div>
       <h2>Levels</h2>
       <div class="grid g2">${LEVELS.map((l, i) => `
-        <a class="card level ${unlocked(i) ? '' : 'locked'}" href="#/level/${l.key}"><span class="num">${i + 1}</span>
+        <a class="card level" href="#/level/${l.key}"><span class="num">${i + 1}</span>
           <h3>${esc(l.name)}</h3><div>${starHTML(stars(l.key))}</div>
           <div class="small muted" style="margin-top:6px">Quiz best: ${Math.round(pct('quiz:' + l.key) * 100)}% · Boss: ${S.best['boss:' + l.key] && S.best['boss:' + l.key].pass ? 'beaten' : 'not yet'}</div></a>`).join('')}</div>
       <p class="small muted" style="margin-top:18px">★ quiz 60%+ &nbsp; ★★ quiz 90%+ &nbsp; ★★★ boss beaten</p>`;
@@ -257,7 +254,7 @@
       const xp = score * 10 + bonus, r = record('quiz:' + key, score, qs.length, xp, null, wrong);
       const p = score / qs.length;
       resultScreen({ key, title: 'Quiz – ' + l.name, score, max: qs.length, xp, gained: r.gained, better: r.better,
-        extra: `<p>${p >= .9 ? 'Excellent!' : p >= .6 ? 'Good job – the next level is open.' : 'Review the cards and try again – you need 60% to open the next level.'}</p>` });
+        extra: `<p>${p >= .9 ? 'Excellent!' : p >= .6 ? 'Good job!' : 'Review the cards and try again – 60% gives you the first star.'}</p>` });
     } });
   });
   route(/^\/boss\/([\w-]+)$/, (key) => {
@@ -393,8 +390,8 @@
         else ctl = `<div class="mcopts">${it[1].map((o, k) => `<label><input type="radio" name="q${gi}_${ii}" value="${L4[k]}"> <span><b>${L4[k]}</b> ${esc(o)}</span></label>`).join('')}</div>`;
         return `<div class="ritem" data-g="${gi}" data-i="${ii}"><div class="n">${n}</div><div>${esc(q).replace(/_{3,}/g, '______')}<div>${ctl}</div><div class="kk"></div></div></div>`;
       }).join('');
-      const parts = g.intro.split('List of headings:');
-      const introHTML = parts.length > 1 ? `${esc(parts[0])}<div class="headings"><b>List of headings</b>${parts[1].split('·').map(h => `<div>${esc(h.trim())}</div>`).join('')}</div>` : esc(g.intro);
+      const m = g.intro.match(/^(.*?)(List of [^:]+):(.*)$/);
+      const introHTML = m ? `${esc(m[1])}<div class="headings"><b>${esc(m[2])}</b>${m[3].split('·').map(h => `<div>${esc(h.trim())}</div>`).join('')}</div>` : esc(g.intro);
       return `<div class="qgroup"><div class="intro">${introHTML}</div>${inner}</div>`;
     }).join('');
     $app.innerHTML = `<div class="spread" style="margin-bottom:10px"><a class="back" href="#/reading" style="margin:0">← Reading Arena</a>
@@ -441,28 +438,17 @@
 
   // ---------- ranking
   route(/^\/rank$/, () => {
-    $app.innerHTML = `<h1>Class ranking</h1><div class="tabs"><a href="#/rank" class="on" id="t1">Students</a><a href="#/rank" id="t2">Groups</a></div><div id="rk"><p class="muted">Loading…</p></div>`;
-    const me = { name: S.profile.name, group: S.profile.group, xp: totalXP(), stars: totalStars(), badges: myBadges().length, mine: true };
-    let view = 'students', data = null;
-    const t1 = document.getElementById('t1'), t2 = document.getElementById('t2');
-    t1.onclick = (e) => { e.preventDefault(); view = 'students'; t1.classList.add('on'); t2.classList.remove('on'); draw(); };
-    t2.onclick = (e) => { e.preventDefault(); view = 'groups'; t2.classList.add('on'); t1.classList.remove('on'); draw(); };
+    $app.innerHTML = `<h1>Class ranking</h1><div id="rk"><p class="muted">Loading…</p></div>`;
+    const me = { name: S.profile.name, xp: totalXP(), stars: totalStars(), badges: myBadges().length, mine: true };
+    let data = null;
     function draw() {
       const box = document.getElementById('rk'); if (!box) return;
       let rows = data || [me];
       if (data) { rows = rows.map(r => r.id_hash === hashId(S.profile.id) ? Object.assign({}, r, { mine: true, xp: Math.max(r.xp, me.xp) }) : r); }
       rows.sort((a, b) => b.xp - a.xp);
-      if (view === 'students') {
-        box.innerHTML = (data ? '' : `<p class="muted small">${CFG.SHEET_URL ? 'Could not load the class ranking right now – showing your own score.' : 'The class ranking is not connected yet – showing your own score only.'}</p>`) +
-          `<table class="rank"><tr><th>#</th><th>Name</th><th>Group</th><th>XP</th><th>Stars</th><th>Badges</th></tr>${rows.map((r, k) =>
-            `<tr class="${r.mine ? 'mine' : ''}"><td class="pos">${k + 1}</td><td>${esc(r.name)}</td><td>${esc(r.group || '')}</td><td>${r.xp}</td><td>${r.stars || 0}</td><td>${r.badges || 0}</td></tr>`).join('')}</table>`;
-      } else {
-        const gs = {}; rows.filter(r => r.xp > 0).forEach(r => { const g = r.group || '–'; gs[g] = gs[g] || { g, n: 0, xp: 0 }; gs[g].n++; gs[g].xp += r.xp; });
-        const list = (Object.values(gs).length ? Object.values(gs) : []).map(x => Object.assign(x, { avg: Math.round(x.xp / x.n) })).sort((a, b) => b.avg - a.avg);
-        box.innerHTML = `<p class="muted small">Groups are ranked by the <b>average XP</b> of members who have played, so small and large groups are compared fairly.</p>
-          <table class="rank"><tr><th>#</th><th>Group</th><th>Average XP</th><th>Players</th><th>Total XP</th></tr>${list.map((x, k) =>
-            `<tr class="${x.g === S.profile.group ? 'mine' : ''}"><td class="pos">${k + 1}</td><td>${esc(x.g)}</td><td>${x.avg}</td><td>${x.n}</td><td>${x.xp}</td></tr>`).join('')}</table>`;
-      }
+      box.innerHTML = (data ? '' : `<p class="muted small">${CFG.SHEET_URL ? 'Could not load the class ranking right now – showing your own score.' : 'The class ranking is not connected yet – showing your own score only.'}</p>`) +
+        `<table class="rank"><tr><th>#</th><th>Name</th><th>XP</th><th>Stars</th><th>Badges</th></tr>${rows.map((r, k) =>
+          `<tr class="${r.mine ? 'mine' : ''}"><td class="pos">${k + 1}</td><td>${esc(r.name)}</td><td>${r.xp}</td><td>${r.stars || 0}</td><td>${r.badges || 0}</td></tr>`).join('')}</table>`;
     }
     if (!CFG.SHEET_URL) return draw();
     fetch(CFG.SHEET_URL + '?action=board').then(r => r.json()).then(j => { data = j.players || []; if (!data.some(r => r.id_hash === hashId(S.profile.id))) data.push(Object.assign({ id_hash: hashId(S.profile.id) }, me)); draw(); })
